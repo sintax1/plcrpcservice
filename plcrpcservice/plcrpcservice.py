@@ -13,9 +13,9 @@ log.setLevel(logging.WARN)
 
 class PLCRPCClient:
 
-    def __init__(self, plc):
+    def __init__(self, rpc_server, rpc_port, plc):
         self.plc = plc
-        self.server = xmlrpclib.Server('http://localhost:8000')
+        self.server = xmlrpclib.Server('http://%s:%s' % (rpc_server, rpc_port))
 
     def registerPLC(self):
         return self.server.registerPLC(self.plc)
