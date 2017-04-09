@@ -16,21 +16,19 @@ class PLCRPCClient:
 
     def __init__(self, rpc_server="localhost", rpc_port=8000, plc=None):
         self.plc = plc
+        self.server = xmlrpclib.Server('http://%s:%s' % (rpc_server, rpc_port))
+
+    def registerPLC(self):
         while True:
             try:
-                log.debug("Connecting to RPC Server")
-                self.server = xmlrpclib.Server(
-                    'http://%s:%s' % (rpc_server, rpc_port))
+                log.debug("Connecting to scadasim RPC Server")
+                return self.server.registerPLC(self.plc)
             except SockerError:
-                log.error(
-                    """RPC error. Verify that the scadasim simulator is
-                     running and RPC Client/Server settings are correct.""")
+                log.error("""RPC error. Verify that the scadasim simulator
+                  is running and RPC Client/Server settings are correct.""")
                 log.error("Retrying in 5 seconds...")
                 pass
             time.sleep(5)
-
-    def registerPLC(self):
-        return self.server.registerPLC(self.plc)
 
     def readSensors(self):
         return self.server.readSensors(self.plc)
@@ -145,3 +143,4 @@ class PLCRPCServer(threading.Thread):
 
     def loadPLCs(self, plcs):
         self.plcrpchandler.loadPLCs(plcs)
+
