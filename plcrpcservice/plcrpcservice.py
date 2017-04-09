@@ -13,7 +13,7 @@ log.setLevel(logging.WARN)
 
 class PLCRPCClient:
 
-    def __init__(self, rpc_server="localhost", rpc_port=8000, plc):
+    def __init__(self, rpc_server="localhost", rpc_port=8000, plc=None):
         self.plc = plc
         self.server = xmlrpclib.Server('http://%s:%s' % (rpc_server, rpc_port))
 
@@ -27,7 +27,7 @@ class PLCRPCClient:
         return self.server.setValues(self, self.plc, fx, address, values)
 
 
-class PLCRPCServer:
+class PLCRPCHandler:
 
     def __init__(self):
         self.plcs = None
@@ -35,6 +35,44 @@ class PLCRPCServer:
         self._stop = threading.Event()
         self.speed = 1
         self.read_frequency = 0.5
+
+    def _write_sensor(self, plc, register, address, value):
+
+        for sensor in self.plcs[plc]['sensors']:
+            s = self.plcs[plc]['sensors'][sensor]
+            if address == s['data_address'] and register == s['register_type']:
+                write_sensor = self.plcs[plc]['sensors'][sensor]['write_sensor']
+                write_sensor(value)
+                return True
+        return False
+
+    def _read_sensors(self):
+        while not self._stop.is_set():
+            log.debug("%s Reading Sensors %s" % (self, datetime.now()))
+
+            for plc in self.plcs:
+                for sensor in self.plcs[plc]['sensors']:
+                    read_sensor = self.plcs[plc]['sensors'][sensor]['read_sensor']
+                    self.plcs[plc]['sensors'][sensor]['value'] = read_sensor()
+
+            # Calculate the next run time based on simulation speed and read
+            # frequency
+            delay = (-time.time() % (self.speed * self.read_frequency))
+            time.sleep(delay)
+
+    def _start(self):
+        log.debug('Starting read sensors worker thread')
+        self.read_sensor_thread = threading.Thread(target=self._read_sensors)
+        self.read_sensor_thread.daemon = True
+        self.read_sensor_thread.start()
+
+    def activate(self):
+        self._stop.clear()
+        self._start()
+
+    def deactivate(self):
+        self._stop.set()
+        self.read_sensor_thread.join()
 
     def loadPLCs(self, plcs):
         self.plcs = plcs
@@ -69,51 +107,26 @@ class PLCRPCServer:
             return False
 
         retval = False
-        for offset in range(len(values)):
+        for offset, value in enumerate(values):
             # If multiple values provided, try to write them all
             retval |= self._write_sensor(
-                plc, register, address + offset, values[offset])
+                plc, register, address + offset, value)
         return retval
 
-    def _write_sensor(self, plc, register, address, value):
 
-        for sensor in self.plcs[plc]['sensors']:
-            s = self.plcs[plc]['sensors'][sensor]
-            if address == s['data_address'] and register == s['register_type']:
-                write_sensor = self.plcs[plc]['sensors'][sensor]['write_sensor']
-                write_sensor(value)
-                return True
-        return False
+class PLCRPCServer(threading.Thread):
 
-    def _read_sensors(self):
-        while not self._stop.is_set():
-            log.debug("%s Reading Sensors %s" % (self, datetime.now()))
+    def __init__(self, rpc_ip="0.0.0.0", rpc_port=8000):
+        super(PLCRPCServer, self).__init__()
+        self.server = SimpleXMLRPCServer.SimpleXMLRPCServer((rpc_ip, rpc_port))
+        self.plcrpchandler = PLCRPCHandler()
+        self.server.register_instance(self.plcrpchandler)
 
-            for plc in self.plcs:
-                for sensor in self.plcs[plc]['sensors']:
-                    read_sensor = self.plcs[plc]['sensors'][sensor]['read_sensor']
-                    self.plcs[plc]['sensors'][sensor]['value'] = read_sensor()
+    def run(self):
+        self.plcrpchandler.activate()
+        self.server.serve_forever()
 
-            # Calculate the next run time based on simulation speed and read
-            # frequency
-            delay = (-time.time() % (self.speed * self.read_frequency))
-            time.sleep(delay)
-
-    def activate(self):
-        self._stop.clear()
-        self._start()
-
-    def deactivate(self):
-        self._stop.set()
-        self.read_sensor_thread.join()
-
-    def _start(self):
-        log.debug('Starting read sensors worker thread')
-        self.read_sensor_thread = threading.Thread(target=self._read_sensors)
-        self.read_sensor_thread.daemon = True
-        self.read_sensor_thread.start()
-
-
-server = SimpleXMLRPCServer.SimpleXMLRPCServer(("0.0.0.0", 8000))
-server.register_instance(PLCRPCServer())
-server.serve_forever()
+    def stop_server(self):
+        self.plcrpchandler.deactivate()
+        self.server.shutdown()
+        self.server.server_close()
