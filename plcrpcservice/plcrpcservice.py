@@ -2,6 +2,14 @@ import time
 from datetime import datetime
 import copy
 import xmlrpclib
+import threading
+import logging
+import SimpleXMLRPCServer
+
+logging.basicConfig()
+log = logging.getLogger('scadasim')
+log.setLevel(logging.WARN)
+
 
 class PLCRPCClient:
 
@@ -17,7 +25,7 @@ class PLCRPCClient:
     def setValues(self, plc, fx, address, values):
         return self.server.setValues(self, plc, fx, address, values)
 
- 
+
 class PLCRPCServer:
 
     def __init__(self):
@@ -43,7 +51,8 @@ class PLCRPCServer:
         return sensors
 
     def setValues(self, plc, fx, address, values):
-        if not hasattr(values,"__iter__"): values = [values]
+        if not hasattr(values, "__iter__"):
+            values = [values]
 
         __fx_mapper = {2: 'd', 4: 'i'}
         __fx_mapper.update([(i, 'h') for i in [3, 6, 16, 22, 23]])
@@ -61,7 +70,8 @@ class PLCRPCServer:
         retval = False
         for offset in range(len(values)):
             # If multiple values provided, try to write them all
-            retval |= self._write_sensor(plc, register, address+offset, values[offset])
+            retval |= self._write_sensor(
+                plc, register, address + offset, values[offset])
         return retval
 
     def _write_sensor(self, plc, register, address, value):
@@ -83,8 +93,9 @@ class PLCRPCServer:
                     read_sensor = self.plcs[plc]['sensors'][sensor]['read_sensor']
                     self.plcs[plc]['sensors'][sensor]['value'] = read_sensor()
 
-            # Calculate the next run time based on simulation speed and read frequency
-            delay = (-time.time()%(self.speed*self.read_frequency))
+            # Calculate the next run time based on simulation speed and read
+            # frequency
+            delay = (-time.time() % (self.speed * self.read_frequency))
             time.sleep(delay)
 
     def activate(self):
