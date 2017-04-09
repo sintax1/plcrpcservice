@@ -13,7 +13,7 @@ log.setLevel(logging.WARN)
 
 class PLCRPCClient:
 
-    def __init__(self, rpc_server, rpc_port, plc):
+    def __init__(self, rpc_server="localhost", rpc_port=8000, plc):
         self.plc = plc
         self.server = xmlrpclib.Server('http://%s:%s' % (rpc_server, rpc_port))
 
