@@ -5,6 +5,7 @@ import xmlrpclib
 import threading
 import logging
 import SimpleXMLRPCServer
+from socket import error as SockerError
 
 logging.basicConfig()
 log = logging.getLogger('scadasim')
@@ -15,7 +16,18 @@ class PLCRPCClient:
 
     def __init__(self, rpc_server="localhost", rpc_port=8000, plc=None):
         self.plc = plc
-        self.server = xmlrpclib.Server('http://%s:%s' % (rpc_server, rpc_port))
+        while True:
+            try:
+                log.debug("Connecting to RPC Server")
+                self.server = xmlrpclib.Server(
+                    'http://%s:%s' % (rpc_server, rpc_port))
+            except SockerError:
+                log.error(
+                    """RPC error. Verify that the scadasim simulator is
+                     running and RPC Client/Server settings are correct.""")
+                log.error("Retrying in 5 seconds...")
+                pass
+            time.sleep(5)
 
     def registerPLC(self):
         return self.server.registerPLC(self.plc)
@@ -133,4 +145,3 @@ class PLCRPCServer(threading.Thread):
 
     def loadPLCs(self, plcs):
         self.plcrpchandler.loadPLCs(plcs)
-
