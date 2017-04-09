@@ -123,10 +123,20 @@ class PLCRPCServer(threading.Thread):
         self.server.register_instance(self.plcrpchandler)
 
     def run(self):
-        self.plcrpchandler.activate()
+        self.activate()
         self.server.serve_forever()
 
     def stop_server(self):
-        self.plcrpchandler.deactivate()
+        self.deactivate()
         self.server.shutdown()
         self.server.server_close()
+
+    def activate(self):
+        self.plcrpchandler.activate()
+
+    def deactivate(self):
+        self.plcrpchandler.deactivate()
+
+    def loadPLCs(self, plcs):
+        self.plcrpchandler.loadPLCs(plcs)
+
