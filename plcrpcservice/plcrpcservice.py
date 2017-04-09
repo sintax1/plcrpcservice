@@ -13,17 +13,18 @@ log.setLevel(logging.WARN)
 
 class PLCRPCClient:
 
-    def __init__(self):
+    def __init__(self, plc):
+        self.plc = plc
         self.server = xmlrpclib.Server('http://localhost:8000')
 
-    def registerPLC(self, plc):
-        return self.server.registerPLC(plc)
+    def registerPLC(self):
+        return self.server.registerPLC(self.plc)
 
-    def readSensors(self, plc):
-        return self.server.readSensors(plc)
+    def readSensors(self):
+        return self.server.readSensors(self.plc)
 
-    def setValues(self, plc, fx, address, values):
-        return self.server.setValues(self, plc, fx, address, values)
+    def setValues(self, fx, address, values):
+        return self.server.setValues(self, self.plc, fx, address, values)
 
 
 class PLCRPCServer:
