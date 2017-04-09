@@ -33,8 +33,8 @@ class PLCRPCHandler:
         self.plcs = None
         self.read_sensor_thread = None
         self._stop = threading.Event()
-        self.speed = 1
-        self.read_frequency = 0.5
+        self.speed = 0.3
+        self.read_frequency = 1
 
     def _write_sensor(self, plc, register, address, value):
 
